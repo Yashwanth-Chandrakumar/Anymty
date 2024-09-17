@@ -4,14 +4,16 @@ from django.db import models
 
 class ChatRoom(models.Model):
     name = models.CharField(max_length=255, unique=True, blank=False, null=False)
-    participants = models.ManyToManyField(User, related_name='chat_rooms')  # No need for null=True
+    participants = models.ManyToManyField(User, related_name='chat_rooms')  # All participants
     description = models.TextField(blank=True, null=True)  # Optional field
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    public = models.BooleanField(default=False)  # Public or private chat room
+    admin = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='admin_chat_rooms', null=True)  # Admin user
+    moderators = models.ManyToManyField(User, related_name='moderator_chat_rooms', blank=True)  # Moderators
 
     def __str__(self):
         return self.name
-
 
 class Message(models.Model):
     MESSAGE_TYPES = (
@@ -33,7 +35,6 @@ class Message(models.Model):
     def __str__(self):
         return f"{self.sender.username}: {self.content[:20]}"  # Display first 20 characters of the content
 
-
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, null=False)
     profile_picture = models.ImageField(upload_to='profile_pics/', blank=True, null=True)
@@ -41,4 +42,3 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return self.user.username
-

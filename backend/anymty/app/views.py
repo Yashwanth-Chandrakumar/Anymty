@@ -1,27 +1,36 @@
-from urllib import request
-
 import boto3
 from botocore.exceptions import NoCredentialsError
 from django.conf import settings
-from django.shortcuts import get_object_or_404
-from rest_framework import viewsets
+from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from .models import ChatRoom, Message
-from .serializers import ChatSerializer, MessageSerializer
+from .serializers import (ChatRoomDetailSerializer, ChatRoomSerializer,
+                          MessageSerializer)
 
 
-class ChatViewSet(viewsets.ModelViewSet):
+class ChatRoomViewSet(viewsets.ModelViewSet):
     queryset = ChatRoom.objects.all()
-    serializer_class = ChatSerializer
+    serializer_class = ChatRoomSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action == 'retrieve':
+            return ChatRoomDetailSerializer
+        return ChatRoomSerializer
+
+    def get_queryset(self):
+        if self.action == 'list':
+            return ChatRoom.objects.filter(public=True)
+        return ChatRoom.objects.all()
 
     @action(detail=True, methods=['get', 'post'])
     def messages(self, request, pk=None):
-        chat = self.get_object()
+        chat_room = self.get_object()
 
         if request.method == 'GET':
-            messages = chat.messages.all()
+            messages = chat_room.messages.all()
             serializer = MessageSerializer(messages, many=True)
             return Response(serializer.data)
 
@@ -33,30 +42,30 @@ class ChatViewSet(viewsets.ModelViewSet):
             if message_type in ['image', 'file'] and file:
                 file_url = self.upload_file_to_s3(file)
                 if not file_url:
-                    return Response({'error': 'Failed to upload file'}, status=400)
+                    return Response({'error': 'Failed to upload file'}, status=status.HTTP_400_BAD_REQUEST)
             else:
                 file_url = None
 
             message = Message.objects.create(
-                chat=chat,
+                chat_room=chat_room,
                 sender=request.user,
                 content=content,
                 type=message_type,
                 file_url=file_url
             )
             serializer = MessageSerializer(message)
-            return Response(serializer.data, status=201)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def upload_file_to_s3(self, file):
-        s3 = boto3.client('s3', aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+        s3 = boto3.client('s3', 
+                          aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
                           aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY)
         try:
-            file_name = f"{file.name}"
+            file_name = f"{self.request.user.id}/{file.name}"
             s3.upload_fileobj(file, settings.AWS_STORAGE_BUCKET_NAME, file_name)
             return f"https://{settings.AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/{file_name}"
         except NoCredentialsError:
             return None
-
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 from rest_framework import status
@@ -111,6 +120,7 @@ class LoginView(APIView):
         else:
             logger.warning(f"Login failed for email: {email}")
             return Response({'message': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+
 
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt

@@ -10,7 +10,7 @@ const LoginScreen: React.FC = () => {
     const [message, setMessage] = useState<string>('');
     const router = useRouter();
 
-    const storeUserInfo = async (userInfo: { token: string, username: string }) => {
+    const storeUserInfo = async (userInfo: { token: string, username: string ,refresh:string}) => {
         try {
             const userJson = JSON.stringify(userInfo);
             await AsyncStorage.setItem('userInfo', userJson);
@@ -30,7 +30,7 @@ const LoginScreen: React.FC = () => {
     
             // Check if token and username are present
             if (response.data.refresh && response.data.username) {
-                await storeUserInfo({ token: response.data.refresh, username: response.data.username });
+                await storeUserInfo({ token: response.data.access, username: response.data.username, refresh:response.data.refresh });
                 console.log("routing to home")
                 router.replace("/(tabs)/home");
             } else {
