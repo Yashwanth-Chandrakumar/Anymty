@@ -1,0 +1,66 @@
+# Python-related
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.so
+*.egg
+*.egg-info/
+.eggs/
+
+# Virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Django-related
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Media and static files
+/media
+/staticfiles
+/static
+
+# Migrations
+**/migrations/*.py
+!**/migrations/__init__.py
+
+# Pytest
+.pytest_cache/
+.coverage
+.tox/
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Environments
+.env
+.env.*
+
+# IDE specific files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+
+# MacOS specific files
+.DS_Store
+
+# Docker
+*.log
+docker-compose.override.yml
+
+# Other
+*.bak
+*.orig
