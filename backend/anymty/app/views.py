@@ -111,3 +111,12 @@ class LoginView(APIView):
         else:
             logger.warning(f"Login failed for email: {email}")
             return Response({'message': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+
+from django.http import HttpResponse
+from django.views.decorators.csrf import csrf_exempt
+
+
+@csrf_exempt  # Exempt from CSRF validation if this view will be hit by an external cron job
+def cron_view(request):
+    # You can add additional logic here if needed
+    return HttpResponse('Happy', content_type='text/plain')

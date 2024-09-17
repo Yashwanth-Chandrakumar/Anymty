@@ -1,12 +1,37 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import React from 'react';
-import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import CustomButton from '../../components/CustomButton';
 
 const SettingsScreen: React.FC = () => {
   const { colors } = useTheme();
   const [isNotificationsEnabled, setIsNotificationsEnabled] = React.useState(true);
   const [isAnonymousModeEnabled, setIsAnonymousModeEnabled] = React.useState(true);
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    try {
+      await AsyncStorage.removeItem('userInfo');
+      router.replace('/loginscreen');
+    } catch (error) {
+      console.error('Error during logout:', error);
+      Alert.alert('Logout Error', 'There was a problem logging out. Please try again.');
+    }
+  };
+
+  const renderSwitch = (title: string, value: boolean, onValueChange: (value: boolean) => void) => (
+    <View style={styles.switchContainer}>
+      <Text style={[styles.switchText, { color: colors.text }]}>{title}</Text>
+      <Switch
+        value={value}
+        onValueChange={onValueChange}
+        trackColor={{ false: colors.border, true: colors.primary }}
+        thumbColor={value ? colors.background : colors.text}
+      />
+    </View>
+  );
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -17,24 +42,8 @@ const SettingsScreen: React.FC = () => {
       </View>
       <View style={[styles.section, { borderBottomColor: colors.border }]}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Preferences</Text>
-        <View style={styles.switchContainer}>
-          <Text style={[styles.switchText, { color: colors.text }]}>Enable Notifications</Text>
-          <Switch
-            value={isNotificationsEnabled}
-            onValueChange={setIsNotificationsEnabled}
-            trackColor={{ false: colors.border, true: colors.primary }}
-            thumbColor={isNotificationsEnabled ? colors.background : colors.text}
-          />
-        </View>
-        <View style={styles.switchContainer}>
-          <Text style={[styles.switchText, { color: colors.text }]}>Anonymous Mode</Text>
-          <Switch
-            value={isAnonymousModeEnabled}
-            onValueChange={setIsAnonymousModeEnabled}
-            trackColor={{ false: colors.border, true: colors.primary }}
-            thumbColor={isAnonymousModeEnabled ? colors.background : colors.text}
-          />
-        </View>
+        {renderSwitch('Enable Notifications', isNotificationsEnabled, setIsNotificationsEnabled)}
+        {renderSwitch('Anonymous Mode', isAnonymousModeEnabled, setIsAnonymousModeEnabled)}
       </View>
       <View style={styles.section}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>About</Text>
@@ -42,6 +51,7 @@ const SettingsScreen: React.FC = () => {
         <CustomButton title="Privacy Policy" onPress={() => {}} />
         <Text style={[styles.version, { color: colors.text }]}>Version 1.0.0</Text>
       </View>
+      <CustomButton title="Logout" onPress={handleLogout} />
     </ScrollView>
   );
 };
@@ -74,6 +84,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     marginTop: 16,
+    marginBottom: 16,
   },
 });
 
