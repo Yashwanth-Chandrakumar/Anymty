@@ -18,8 +18,8 @@ RUN pip install -r requirements.txt
 # Copy the entire Django project into the container
 COPY . /app/
 
-# Expose port 8000 for Django
+# Expose port 8000 for the application
 EXPOSE 8000
 
-# Run the Django development server
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+# Use Gunicorn to run the Django application
+CMD ["gunicorn", "anymty.wsgi:application", "--bind", "0.0.0.0:8000"]
