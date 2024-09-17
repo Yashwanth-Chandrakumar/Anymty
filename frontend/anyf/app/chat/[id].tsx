@@ -1,93 +1,88 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as DocumentPicker from 'expo-document-picker';
-import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTheme } from '@react-navigation/native';
+import axios from 'axios';
 import { useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { FlatList, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
-import MessageBubble from '../../components/MessageBubble';
-import { useCustomTheme } from '../../hooks/useCustomTheme';
-import { fetchMessages, sendMessage } from '../../services/chatService';
+import React, { useEffect, useRef, useState } from 'react';
+import { FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 interface Message {
   id: string;
   sender: string;
   content: string;
   timestamp: string;
-  type: 'text' | 'image' | 'file';
-  fileUrl?: string;
 }
 
 const ChatScreen: React.FC = () => {
+  const { colors } = useTheme();
   const { id } = useLocalSearchParams();
-  const { colors } = useCustomTheme();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
+  const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
-    loadMessages();
+    fetchMessages();
+    const interval = setInterval(fetchMessages, 5000); // Poll for new messages every 5 seconds
+    return () => clearInterval(interval);
   }, []);
 
-  const loadMessages = async () => {
-    const fetchedMessages = await fetchMessages(id as string);
-    setMessages(fetchedMessages);
-  };
-
-  const handleSendMessage = async () => {
-    if (inputText.trim()) {
-      await sendMessage(id as string, { type: 'text', content: inputText });
-      setInputText('');
-      loadMessages();
-    }
-  };
-
-  const handleSendImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 1,
-    });
-
-    if (!result.canceled) {
-      await sendMessage(id as string, { type: 'image', content: result.assets[0].uri });
-      loadMessages();
-    }
-  };
-
-  const handleSendFile = async () => {
+  const fetchMessages = async () => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: '*/*', // Allow all file types
-      });
-
-      if (result.type === 'success') {
-        await sendMessage(id as string, { 
-          type: 'file', 
-          content: result.uri,
-          name: result.name
+      const userInfo = await AsyncStorage.getItem('userInfo');
+      if (userInfo) {
+        const { token } = JSON.parse(userInfo);
+        const response = await axios.get(`http://127.0.0.1:8000/chatrooms/${id}/messages/`, {
+          headers: { Authorization: `Bearer ${token}` },
         });
-        loadMessages();
+        setMessages(response.data);
       }
     } catch (error) {
-      console.error('Error picking document:', error);
+      console.error('Error fetching messages:', error);
     }
   };
 
+  const sendMessage = async () => {
+    if (inputText.trim()) {
+      try {
+        const userInfo = await AsyncStorage.getItem('userInfo');
+        if (userInfo) {
+          const { token } = JSON.parse(userInfo);
+          await axios.post(
+            `http://127.0.0.1:8000/chatrooms/${id}/messages/`,
+            { content: inputText },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          setInputText('');
+          fetchMessages();
+        }
+      } catch (error) {
+        console.error('Error sending message:', error);
+      }
+    }
+  };
+
+  const renderMessageItem = ({ item }: { item: Message }) => (
+    <View style={[styles.messageItem, { backgroundColor: colors.card }]}>
+      <Text style={[styles.messageSender, { color: colors.text }]}>{item.sender}</Text>
+      <Text style={[styles.messageContent, { color: colors.text }]}>{item.content}</Text>
+      <Text style={[styles.messageTimestamp, { color: colors.text }]}>{new Date(item.timestamp).toLocaleString()}</Text>
+    </View>
+  );
+
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <KeyboardAvoidingView 
+      style={[styles.container, { backgroundColor: colors.background }]}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={100}
+    >
       <FlatList
+        ref={flatListRef}
         data={messages}
-        renderItem={({ item }) => <MessageBubble message={item} />}
+        renderItem={renderMessageItem}
         keyExtractor={(item) => item.id}
-        inverted
+        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
       />
       <View style={styles.inputContainer}>
-        <TouchableOpacity onPress={handleSendImage}>
-          <Ionicons name="image" size={24} color={colors.primary} />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={handleSendFile}>
-          <Ionicons name="document" size={24} color={colors.primary} />
-        </TouchableOpacity>
         <TextInput
           style={[styles.input, { color: colors.text, backgroundColor: colors.card }]}
           value={inputText}
@@ -95,11 +90,11 @@ const ChatScreen: React.FC = () => {
           placeholder="Type a message..."
           placeholderTextColor={colors.text}
         />
-        <TouchableOpacity onPress={handleSendMessage}>
-          <Ionicons name="send" size={24} color={colors.primary} />
+        <TouchableOpacity style={[styles.sendButton, { backgroundColor: colors.primary }]} onPress={sendMessage}>
+          <Ionicons name="send" size={24} color="white" />
         </TouchableOpacity>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -107,16 +102,40 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  messageItem: {
+    padding: 10,
+    marginVertical: 5,
+    marginHorizontal: 10,
+    borderRadius: 10,
+  },
+  messageSender: {
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  messageContent: {
+    marginBottom: 5,
+  },
+  messageTimestamp: {
+    fontSize: 12,
+    alignSelf: 'flex-end',
+  },
   inputContainer: {
     flexDirection: 'row',
     padding: 10,
-    alignItems: 'center',
   },
   input: {
     flex: 1,
-    marginHorizontal: 10,
-    padding: 10,
     borderRadius: 20,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    marginRight: 10,
+  },
+  sendButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

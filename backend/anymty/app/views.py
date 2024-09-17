@@ -1,6 +1,7 @@
 import boto3
 from botocore.exceptions import NoCredentialsError
 from django.conf import settings
+from django.db.models import Q
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -16,16 +17,16 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
-        serializer.save()
-
-    def get_serializer_class(self):
-        if self.action == 'retrieve':
-            return ChatRoomDetailSerializer
-        return ChatRoomSerializer
+        # Save chat room with the user who created it as the admin
+        serializer.save(admin=self.request.user)
 
     def get_queryset(self):
+        """
+        Return all chat rooms where the current user is either a participant or the room is public.
+        """
+        user = self.request.user
         if self.action == 'list':
-            return ChatRoom.objects.filter(public=True)
+            return ChatRoom.objects.filter(Q(participants=user))
         return ChatRoom.objects.all()
 
     @action(detail=True, methods=['get', 'post'])
@@ -69,6 +70,8 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
             return f"https://{settings.AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/{file_name}"
         except NoCredentialsError:
             return None
+
+
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 from rest_framework import status

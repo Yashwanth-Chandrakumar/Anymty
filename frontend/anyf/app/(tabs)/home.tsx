@@ -29,19 +29,19 @@ const HomeScreen: React.FC = () => {
   const fetchChatRooms = async () => {
     try {
       const userInfo = await AsyncStorage.getItem('userInfo');
-      console.log('User info:', userInfo);
       if (userInfo) {
         const { token } = JSON.parse(userInfo);
-        console.log('Token:', token);  // Add this line to check if token is present
         const response = await axios.get('http://127.0.0.1:8000/chatrooms/', {
           headers: { Authorization: `Bearer ${token}` },
         });
-        setChatRooms(response.data);
+        console.log('Chat Rooms:', response.data); // Check the returned data
+        setChatRooms(response.data);  // Set the chat rooms to the state
       }
     } catch (error) {
       console.error('Error fetching chat rooms:', error);
     }
   };
+  
   
 
   const createChatRoom = async () => {
