@@ -21,7 +21,7 @@ const LoginScreen: React.FC = () => {
 
     const handleLogin = async () => {
         try {
-            const response = await axios.post('http://192.168.1.47:8000/login/', {
+            const response = await axios.post('https://anymty.onrender.com/login/', {
                 email,
                 password
             });
