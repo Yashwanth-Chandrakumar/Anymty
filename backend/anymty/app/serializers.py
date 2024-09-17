@@ -25,11 +25,13 @@ class ChatRoomSerializer(serializers.ModelSerializer):
     class Meta:
         model = ChatRoom
         fields = ['id', 'name', 'description', 'public', 'participants', 'admin', 'moderators', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at', 'admin']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'admin', 'participants']
 
     def create(self, validated_data):
-        validated_data['admin'] = self.context['request'].user
-        return super().create(validated_data)
+        user = self.context['request'].user
+        chat_room = ChatRoom.objects.create(admin=user, **validated_data)
+        chat_room.participants.add(user)
+        return chat_room
 
 class ChatRoomDetailSerializer(ChatRoomSerializer):
     messages = MessageSerializer(many=True, read_only=True)

@@ -10,7 +10,7 @@ const LoginScreen: React.FC = () => {
     const [message, setMessage] = useState<string>('');
     const router = useRouter();
 
-    const storeUserInfo = async (userInfo: { token: string, username: string ,refresh:string}) => {
+    const storeUserInfo = async (userInfo: { token: string, username: string ,refresh:string ,userId:number}) => {
         try {
             const userJson = JSON.stringify(userInfo);
             await AsyncStorage.setItem('userInfo', userJson);
@@ -21,22 +21,27 @@ const LoginScreen: React.FC = () => {
 
     const handleLogin = async () => {
         try {
-            const response = await axios.post('https://anymty.onrender.com/login/', {
+            const response = await axios.post('http://127.0.0.1:8000/login/', {
                 email,
                 password
             });
     
             console.log('Response:', response);
     
-            // Check if token and username are present
-            if (response.data.refresh && response.data.username) {
-                await storeUserInfo({ token: response.data.access, username: response.data.username, refresh:response.data.refresh });
-                console.log("routing to home")
+            // Check if the required fields are present in the response
+            if (response.data.access && response.data.username && response.data.refresh && response.data.user_id) {
+                await storeUserInfo({
+                    token: response.data.access,
+                    username: response.data.username,
+                    refresh: response.data.refresh,
+                    userId: response.data.user_id
+                });
+                console.log("Routing to home");
                 router.replace("/(tabs)/home");
             } else {
-                console.log('Token or username missing in response');
+                console.log('Token, username, refresh, or user_id missing in response');
             }
-            
+    
             setMessage(response.data.message);
         } catch (error: any) {
             console.error('Login Error:', error);
@@ -44,7 +49,6 @@ const LoginScreen: React.FC = () => {
         }
     };
     
-
     return (
         <View style={styles.container}>
             <TextInput

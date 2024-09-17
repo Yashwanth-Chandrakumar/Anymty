@@ -12,8 +12,21 @@ class ChatRoom(models.Model):
     admin = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='admin_chat_rooms', null=True)  # Admin user
     moderators = models.ManyToManyField(User, related_name='moderator_chat_rooms', blank=True)  # Moderators
 
+    def save(self, *args, **kwargs):
+        # Check if the chat room is being created (i.e., no primary key yet)
+        if not self.pk:
+            # Save the instance first to create the primary key
+            super().save(*args, **kwargs)
+            # Add the admin as a participant
+            if self.admin:
+                self.participants.add(self.admin)
+                self.save()  # Save again to commit changes to participants
+        else:
+            super().save(*args, **kwargs)
+
     def __str__(self):
         return self.name
+
 
 class Message(models.Model):
     MESSAGE_TYPES = (

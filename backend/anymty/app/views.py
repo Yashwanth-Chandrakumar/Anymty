@@ -15,6 +15,9 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
     serializer_class = ChatRoomSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def perform_create(self, serializer):
+        serializer.save()
+
     def get_serializer_class(self):
         if self.action == 'retrieve':
             return ChatRoomDetailSerializer
@@ -111,9 +114,8 @@ class LoginView(APIView):
             access_token = str(refresh.access_token)
             return Response({
                 'message': 'Login successful',
-                
-                    'username': user.username,
-                    
+                'username': user.username,
+                'user_id': user.id,  # Include the user ID
                 'access': access_token,
                 'refresh': str(refresh),
             })

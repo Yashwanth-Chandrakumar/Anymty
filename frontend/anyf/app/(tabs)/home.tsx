@@ -49,7 +49,7 @@ const HomeScreen: React.FC = () => {
       const userInfo = await AsyncStorage.getItem('userInfo');
       if (userInfo) {
         const { token } = JSON.parse(userInfo);
-        const response = await axios.post(
+        await axios.post(
           'http://127.0.0.1:8000/chatrooms/',
           {
             name: newRoomName,
@@ -60,7 +60,6 @@ const HomeScreen: React.FC = () => {
             headers: { Authorization: `Bearer ${token}` },
           }
         );
-        console.log('Chat room created successfully:', response.data);
         setModalVisible(false);
         setNewRoomName('');
         setNewRoomDescription('');
@@ -68,14 +67,9 @@ const HomeScreen: React.FC = () => {
         fetchChatRooms();
       }
     } catch (error) {
-      if (axios.isAxiosError(error)) {
-        console.error('Error creating chat room:', error.response?.data || error.message);
-      } else {
-        console.error('Unexpected error:', error);
-      }
+      console.error('Error creating chat room:', error);
     }
   };
-  
 
   const renderChatRoomItem = ({ item }: { item: ChatRoom }) => (
     <TouchableOpacity
