@@ -1,11 +1,11 @@
 gunicorn==23.0.0
-packaging==24.1
+packaging>=24.1
 Django>=4.0
 djangorestframework>=3.13.1
 psycopg2-binary>=2.9
 boto3>=1.20.0
-django-cors-headers==4.0.0  # Ensure this matches your version
-django-storages==1.13.0  # Ensure this matches your version
-dj-database-url==1.0.0  # Ensure this matches your version
-djangorestframework==3.14.0  # Ensure this matches your version
-djangorestframework-simplejwt==5.2.0  # Ensure this matches your version
+django-cors-headers>=4.0.0  # Ensure this matches your version
+django-storages>=1.13.0  # Ensure this matches your version
+dj-database-url>=1.0.0  # Ensure this matches your version
+djangorestframework>=3.14.0  # Ensure this matches your version
+djangorestframework-simplejwt>=5.2.0  # Ensure this matches your version
