@@ -28,6 +28,10 @@ class ChatRoom(models.Model):
         return self.name
 
 
+from django.contrib.auth.models import User
+from django.db import models
+
+
 class Message(models.Model):
     MESSAGE_TYPES = (
         ('text', 'Text'),
@@ -35,10 +39,11 @@ class Message(models.Model):
         ('file', 'File'),
     )
 
-    chat_room = models.ForeignKey(ChatRoom, on_delete=models.CASCADE, related_name='messages', null=False)
+    chat_room = models.ForeignKey('ChatRoom', on_delete=models.CASCADE, related_name='messages', null=False)
     sender = models.ForeignKey(User, on_delete=models.CASCADE, null=False)
-    content = models.TextField(blank=True, null=True)  # Optional for non-text messages
-    file_url = models.URLField(blank=True, null=True)  # Optional for file messages
+    content = models.TextField(blank=True, null=True)
+    file_url = models.URLField(blank=True, null=True)
+    file_type = models.CharField(max_length=50, blank=True, null=True)
     timestamp = models.DateTimeField(auto_now_add=True)
     type = models.CharField(max_length=5, choices=MESSAGE_TYPES, default='text')
 
@@ -46,8 +51,7 @@ class Message(models.Model):
         ordering = ['-timestamp']
 
     def __str__(self):
-        return f"{self.sender.username}: {self.content[:20]}"  # Display first 20 characters of the content
-
+        return f"{self.sender.username}: {self.content[:20]}"
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, null=False)
     profile_picture = models.ImageField(upload_to='profile_pics/', blank=True, null=True)

@@ -17,13 +17,9 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
-        # Save chat room with the user who created it as the admin
         serializer.save(admin=self.request.user)
 
     def get_queryset(self):
-        """
-        Return all chat rooms where the current user is either a participant or the room is public.
-        """
         user = self.request.user
         if self.action == 'list':
             return ChatRoom.objects.filter(Q(participants=user))
@@ -39,37 +35,34 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
 
         elif request.method == 'POST':
-            message_type = request.data.get('type', 'text')
-            content = request.data.get('content', '')
-            file = request.FILES.get('file')
-
-            if message_type in ['image', 'file'] and file:
-                file_url = self.upload_file_to_s3(file)
-                if not file_url:
-                    return Response({'error': 'Failed to upload file'}, status=status.HTTP_400_BAD_REQUEST)
-            else:
-                file_url = None
-
-            message = Message.objects.create(
-                chat_room=chat_room,
-                sender=request.user,
-                content=content,
-                type=message_type,
-                file_url=file_url
-            )
-            serializer = MessageSerializer(message)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-
+            serializer = MessageSerializer(data=request.data, context={'view': self})
+            if serializer.is_valid():
+                serializer.save(chat_room=chat_room, sender=request.user)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
     def upload_file_to_s3(self, file):
         s3 = boto3.client('s3', 
                           aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
                           aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY)
         try:
-            file_name = f"{self.request.user.id}/{file.name}"
-            s3.upload_fileobj(file, settings.AWS_STORAGE_BUCKET_NAME, file_name)
-            return f"https://{settings.AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/{file_name}"
+            # Generate a unique filename
+            file_extension = os.path.splitext(file.name)[1]
+            unique_filename = f"{uuid.uuid4()}{file_extension}"
+            
+            # Create the full path for the file in S3
+            file_path = f"{self.request.user.id}/{unique_filename}"
+            
+            # Upload the file to S3
+            s3.upload_fileobj(file, settings.AWS_STORAGE_BUCKET_NAME, file_path)
+            
+            # Generate the public URL for the file
+            file_url = f"https://{settings.AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/{file_path}"
+            file_type = file.content_type
+            return file_url, file_type
         except NoCredentialsError:
-            return None
+            return None, None
+
 
 
 from django.contrib.auth.forms import UserCreationForm
