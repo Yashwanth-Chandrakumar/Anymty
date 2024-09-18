@@ -5,7 +5,8 @@ import axios from 'axios';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { FlatList, Image, Linking, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Dimensions, FlatList, Image, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+// import Pdf from 'react-native-pdf';
 
 interface Message {
   id: string;
@@ -22,10 +23,27 @@ const ChatScreen: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [isAttachmentMenuVisible, setIsAttachmentMenuVisible] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedPdf, setSelectedPdf] = useState<string | null>(null);
   const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
     fetchMessages();
+  }, []);
+
+  const fetchMessages = useCallback(async () => {
+    try {
+      const userInfo = await AsyncStorage.getItem('userInfo');
+      if (userInfo) {
+        const { token } = JSON.parse(userInfo);
+        const response = await axios.get('http://127.0.0.1:8000/chatrooms/1/messages/', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setMessages(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+    }
   }, []);
 
   const sendMessage = useCallback(async (content: string, file?: any) => {
@@ -93,23 +111,7 @@ const ChatScreen: React.FC = () => {
     setIsAttachmentMenuVisible(false);
   }, [sendMessage]);
 
-  const fetchMessages = useCallback(async () => {
-    try {
-      const userInfo = await AsyncStorage.getItem('userInfo');
-      if (userInfo) {
-        const { token } = JSON.parse(userInfo);
-        const response = await axios.get('http://127.0.0.1:8000/chatrooms/1/messages/', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setMessages(response.data);
-      }
-    } catch (error) {
-      console.error('Error fetching messages:', error);
-    }
-  }, []);
-
   
-
 
   const renderMessageItem = useCallback(({ item }: { item: Message }) => (
     <View style={[styles.messageItem, { alignSelf: item.sender === 'You' ? 'flex-end' : 'flex-start' }]}>
@@ -119,10 +121,12 @@ const ChatScreen: React.FC = () => {
         </View>
       )}
       {item.type === 'image' && item.file_url && (
-        <Image source={{ uri: item.file_url }} style={styles.imageMessage} />
+        <TouchableOpacity onPress={() => setSelectedImage(item.file_url)}>
+          <Image source={{ uri: item.file_url }} style={styles.imageMessage} />
+        </TouchableOpacity>
       )}
       {item.type === 'file' && item.file_url && (
-        <TouchableOpacity onPress={() => Linking.openURL(item.file_url)}>
+        <TouchableOpacity onPress={() => setSelectedPdf(item.file_url)}>
           <View style={[styles.fileBubble, { backgroundColor: item.sender === 'You' ? colors.primary : colors.card }]}>
             <Ionicons name="document" size={24} color={item.sender === 'You' ? 'white' : colors.text} />
             <Text style={[styles.fileName, { color: item.sender === 'You' ? 'white' : colors.text }]}>
@@ -142,7 +146,7 @@ const ChatScreen: React.FC = () => {
         data={messages}
         renderItem={renderMessageItem}
         keyExtractor={(item) => item.id}
-        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
       />
       <View style={styles.inputContainer}>
         <TouchableOpacity onPress={() => setIsAttachmentMenuVisible(!isAttachmentMenuVisible)} style={styles.attachButton}>
@@ -171,6 +175,33 @@ const ChatScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
       )}
+      <Modal visible={!!selectedImage} transparent={true} onRequestClose={() => setSelectedImage(null)}>
+        <View style={styles.modalContainer}>
+          <TouchableOpacity style={styles.closeButton} onPress={() => setSelectedImage(null)}>
+            <Ionicons name="close" size={30} color="white" />
+          </TouchableOpacity>
+          {selectedImage && (
+            <Image
+              source={{ uri: selectedImage }}
+              style={styles.fullScreenImage}
+              resizeMode="contain"
+            />
+          )}
+        </View>
+      </Modal>
+      <Modal visible={!!selectedPdf} transparent={true} onRequestClose={() => setSelectedPdf(null)}>
+        <View style={styles.modalContainer}>
+          <TouchableOpacity style={styles.closeButton} onPress={() => setSelectedPdf(null)}>
+            <Ionicons name="close" size={30} color="white" />
+          </TouchableOpacity>
+          {/* {selectedPdf && (
+            // <Pdf
+            //   source={{ uri: selectedPdf }}
+            //   style={styles.fullScreenPdf}
+            // />
+          )} */}
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -241,6 +272,27 @@ const styles = StyleSheet.create({
   },
   attachmentOption: {
     alignItems: 'center',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenImage: {
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    zIndex: 1,
+  },
+  fullScreenPdf: {
+    flex: 1,
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height,
   },
 });
 

@@ -28,12 +28,13 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
             return ChatRoom.objects.filter(Q(participants=user))
         return ChatRoom.objects.all()
 
+    
     @action(detail=True, methods=['get', 'post'])
     def messages(self, request, pk=None):
         chat_room = self.get_object()
 
         if request.method == 'GET':
-            messages = chat_room.messages.all()
+            messages = chat_room.messages.order_by('-timestamp')  # Order by timestamp in descending order
             serializer = MessageSerializer(messages, many=True)
             return Response(serializer.data)
 
