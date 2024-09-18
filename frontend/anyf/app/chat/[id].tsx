@@ -38,7 +38,7 @@ const ChatScreen: React.FC = () => {
       const userInfo = await AsyncStorage.getItem('userInfo');
       if (userInfo) {
         const { token } = JSON.parse(userInfo);
-        const response = await axios.get(`http://127.0.0.1:8000/chatrooms/${chatRoomId.id}/messages/`, {
+        const response = await axios.get(`https://anymty.onrender.com/chatrooms/${chatRoomId.id}/messages/`, {
           headers: { Authorization: `Bearer ${token}` },
           params: { ordering: 'timestamp' } // Add ordering parameter here
         });
@@ -64,7 +64,7 @@ const ChatScreen: React.FC = () => {
           formData.append('file', fileBlob, file.name);
         }
 
-        const response = await axios.post(`http://127.0.0.1:8000/chatrooms/${chatRoomId}/messages/`, formData, {
+        const response = await axios.post(`https://anymty.onrender.com/chatrooms/${chatRoomId.id}/messages/`, formData, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'multipart/form-data',
@@ -182,7 +182,7 @@ const ChatScreen: React.FC = () => {
       <View style={styles.modalContainer}>
     {/* Close Button */}
     <TouchableOpacity style={styles.closeButton} onPress={() => setSelectedImage(null)}>
-      <Ionicons name="close" size={30} color="white" />
+      <Ionicons name="close" size={30} color="red" />
     </TouchableOpacity>
 
     <ImageViewer

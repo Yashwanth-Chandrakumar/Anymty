@@ -17,7 +17,7 @@ const RegisterScreen: React.FC = () => {
         }
 
         try {
-            const response = await axios.post('http://127.0.0.1:8000/register/', {
+            const response = await axios.post('https://anymty.onrender.com/register/', {
                 email,
                 password,
                 confirmPassword

@@ -31,7 +31,7 @@ const HomeScreen: React.FC = () => {
       const userInfo = await AsyncStorage.getItem('userInfo');
       if (userInfo) {
         const { token } = JSON.parse(userInfo);
-        const response = await axios.get('http://127.0.0.1:8000/chatrooms/', {
+        const response = await axios.get('https://anymty.onrender.com/chatrooms/', {
           headers: { Authorization: `Bearer ${token}` },
         });
         console.log('Chat Rooms:', response.data); // Check the returned data
@@ -50,7 +50,7 @@ const HomeScreen: React.FC = () => {
       if (userInfo) {
         const { token } = JSON.parse(userInfo);
         await axios.post(
-          'http://127.0.0.1:8000/chatrooms/',
+          'https://anymty.onrender.com/chatrooms/',
           {
             name: newRoomName,
             description: newRoomDescription,
