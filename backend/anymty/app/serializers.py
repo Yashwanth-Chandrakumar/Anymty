@@ -28,7 +28,6 @@ class MessageSerializer(serializers.ModelSerializer):
                 message.type = 'image' if file_type.startswith('image/') else 'file'
                 message.save()
         elif file_data:
-            # Handle base64 encoded image data
             format, imgstr = file_data.split(';base64,')
             ext = format.split('/')[-1]
             file = ContentFile(base64.b64decode(imgstr), name=f'temp.{ext}')

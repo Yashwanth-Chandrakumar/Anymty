@@ -4,83 +4,64 @@ import { useTheme } from '@react-navigation/native';
 import axios from 'axios';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import { useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
-import { FlatList, Image, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { FlatList, Image, Linking, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 interface Message {
   id: string;
   sender: string;
   content: string;
   timestamp: string;
-  fileUrl?: string;
-  fileType?: string;
   type: 'text' | 'image' | 'file';
+  file_url?: string;
+  file_type?: string;
 }
 
 const ChatScreen: React.FC = () => {
   const { colors } = useTheme();
-  const { id } = useLocalSearchParams();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [isAttachmentMenuVisible, setIsAttachmentMenuVisible] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
     fetchMessages();
-    const interval = setInterval(fetchMessages, 5000);
-    return () => clearInterval(interval);
   }, []);
 
-  const fetchMessages = async () => {
+  const sendMessage = useCallback(async (content: string, file?: any) => {
     try {
       const userInfo = await AsyncStorage.getItem('userInfo');
       if (userInfo) {
         const { token } = JSON.parse(userInfo);
-        const response = await axios.get(`http://127.0.0.1:8000/chatrooms/${id}/messages/`, {
-          headers: { Authorization: `Bearer ${token}` },
+        const formData = new FormData();
+        formData.append('content', content);
+
+        if (file) {
+          const fileInfo = await fetch(file.uri);
+          const fileBlob = await fileInfo.blob();
+          formData.append('file', fileBlob, file.name);
+        }
+
+        const response = await axios.post('http://127.0.0.1:8000/chatrooms/1/messages/', formData, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data',
+          },
         });
-        setMessages(response.data);
+
+        console.log('Message sent successfully:', response.data);
+        setInputText('');
+        fetchMessages();
       }
     } catch (error) {
-      console.error('Error fetching messages:', error);
-    }
-  };
-
-  const sendMessage = async (fileUri: string | null = null, fileType: string | null = null) => {
-    if (inputText.trim() || fileUri) {
-      try {
-        const userInfo = await AsyncStorage.getItem('userInfo');
-        if (userInfo) {
-          const { token } = JSON.parse(userInfo);
-          const formData = new FormData();
-          formData.append('content', inputText);
-  
-          if (fileUri && fileType) {
-            const response = await fetch(fileUri);
-            const blob = await response.blob();
-            formData.append('file', {
-              uri: fileUri,
-              type: fileType, // Ensure the correct MIME type
-              name: fileUri.split('/').pop() // Extract filename
-            });
-          }
-  
-          await axios.post(
-            `http://127.0.0.1:8000/chatrooms/${id}/messages/`,
-            formData,
-            { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } }
-          );
-          setInputText('');
-          fetchMessages();
-        }
-      } catch (error) {
-        console.error('Error sending message:', error);
+      console.error('Error sending message:', error);
+      if (axios.isAxiosError(error) && error.response) {
+        console.error('Server response:', error.response.data);
       }
     }
-  };
-  
-  const pickImage = async () => {
+  }, []);
+
+  const pickImage = useCallback(async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -88,44 +69,71 @@ const ChatScreen: React.FC = () => {
       quality: 1,
     });
 
-    if (!result.canceled) {
-      sendMessage(result.assets[0].uri, 'image');
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      sendMessage('', {
+        uri: asset.uri,
+        type: 'image/jpeg',
+        name: 'image.jpg',
+      });
     }
-  };
+    setIsAttachmentMenuVisible(false);
+  }, [sendMessage]);
 
-  const pickDocument = async () => {
-    const result = await DocumentPicker.getDocumentAsync({ type: '*/*' });
+  const pickDocument = useCallback(async () => {
+    const result = await DocumentPicker.getDocumentAsync();
     if (result.assets && result.assets.length > 0) {
-      sendMessage(result.assets[0].uri, 'file');
+      const asset = result.assets[0];
+      sendMessage('', {
+        uri: asset.uri,
+        type: asset.mimeType,
+        name: asset.name,
+      });
     }
-  };
+    setIsAttachmentMenuVisible(false);
+  }, [sendMessage]);
 
-  const renderMessageItem = ({ item }: { item: Message }) => (
-    <View style={[styles.messageItem, { backgroundColor: colors.card }]}>
-      <Text style={[styles.messageSender, { color: colors.text }]}>{item.sender}</Text>
+  const fetchMessages = useCallback(async () => {
+    try {
+      const userInfo = await AsyncStorage.getItem('userInfo');
+      if (userInfo) {
+        const { token } = JSON.parse(userInfo);
+        const response = await axios.get('http://127.0.0.1:8000/chatrooms/1/messages/', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setMessages(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+    }
+  }, []);
+
+  
+
+
+  const renderMessageItem = useCallback(({ item }: { item: Message }) => (
+    <View style={[styles.messageItem, { alignSelf: item.sender === 'You' ? 'flex-end' : 'flex-start' }]}>
       {item.type === 'text' && (
-        <Text style={[styles.messageContent, { color: colors.text }]}>{item.content}</Text>
+        <View style={[styles.textBubble, { backgroundColor: item.sender === 'You' ? colors.primary : colors.card }]}>
+          <Text style={[styles.messageContent, { color: item.sender === 'You' ? 'white' : colors.text }]}>{item.content}</Text>
+        </View>
       )}
-      {item.type === 'image' && item.fileUrl && (
-        <TouchableOpacity onPress={() => setSelectedImage(item.fileUrl)}>
-          <Image source={{ uri: item.fileUrl }} style={styles.imagePreview} />
-        </TouchableOpacity>
+      {item.type === 'image' && item.file_url && (
+        <Image source={{ uri: item.file_url }} style={styles.imageMessage} />
       )}
-      {item.type === 'file' && (
-        <TouchableOpacity onPress={() => console.log('Open file', item.fileUrl)}>
-          <View style={styles.filePreview}>
-            <Ionicons name="document" size={24} color={colors.text} />
-            <Text style={[styles.fileName, { color: colors.text }]}>
-              {item.fileUrl?.split('/').pop()}
+      {item.type === 'file' && item.file_url && (
+        <TouchableOpacity onPress={() => Linking.openURL(item.file_url)}>
+          <View style={[styles.fileBubble, { backgroundColor: item.sender === 'You' ? colors.primary : colors.card }]}>
+            <Ionicons name="document" size={24} color={item.sender === 'You' ? 'white' : colors.text} />
+            <Text style={[styles.fileName, { color: item.sender === 'You' ? 'white' : colors.text }]}>
+              {item.file_url.split('/').pop()}
             </Text>
           </View>
         </TouchableOpacity>
       )}
-      <Text style={[styles.messageTimestamp, { color: colors.text }]}>
-        {new Date(item.timestamp).toLocaleString()}
-      </Text>
+      <Text style={styles.timestamp}>{new Date(item.timestamp).toLocaleTimeString()}</Text>
     </View>
-  );
+  ), [colors]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -137,6 +145,9 @@ const ChatScreen: React.FC = () => {
         onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
       />
       <View style={styles.inputContainer}>
+        <TouchableOpacity onPress={() => setIsAttachmentMenuVisible(!isAttachmentMenuVisible)} style={styles.attachButton}>
+          <Ionicons name="attach" size={24} color={colors.text} />
+        </TouchableOpacity>
         <TextInput
           style={[styles.input, { color: colors.text, backgroundColor: colors.card }]}
           value={inputText}
@@ -144,70 +155,68 @@ const ChatScreen: React.FC = () => {
           placeholder="Type a message..."
           placeholderTextColor={colors.text}
         />
-        <TouchableOpacity style={styles.iconButton} onPress={pickImage}>
-          <Ionicons name="image" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.iconButton} onPress={pickDocument}>
-          <Ionicons name="document" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.sendButton, { backgroundColor: colors.primary }]}
-          onPress={() => sendMessage()}
-        >
+        <TouchableOpacity onPress={() => sendMessage(inputText)} style={[styles.sendButton, { backgroundColor: colors.primary }]}>
           <Ionicons name="send" size={24} color="white" />
         </TouchableOpacity>
       </View>
-      <Modal visible={!!selectedImage} transparent={true} onRequestClose={() => setSelectedImage(null)}>
-        <View style={styles.modalContainer}>
-          <TouchableOpacity style={styles.closeButton} onPress={() => setSelectedImage(null)}>
-            <Ionicons name="close" size={30} color="white" />
+      {isAttachmentMenuVisible && (
+        <View style={styles.attachmentMenu}>
+          <TouchableOpacity onPress={pickImage} style={styles.attachmentOption}>
+            <Ionicons name="image" size={30} color={colors.primary} />
+            <Text style={{ color: colors.text }}>Image</Text>
           </TouchableOpacity>
-          {selectedImage && (
-            <Image source={{ uri: selectedImage }} style={styles.fullScreenImage} resizeMode="contain" />
-          )}
+          <TouchableOpacity onPress={pickDocument} style={styles.attachmentOption}>
+            <Ionicons name="document" size={30} color={colors.primary} />
+            <Text style={{ color: colors.text }}>Document</Text>
+          </TouchableOpacity>
         </View>
-      </Modal>
+      )}
     </View>
   );
 };
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
   messageItem: {
-    padding: 10,
+    maxWidth: '80%',
     marginVertical: 5,
     marginHorizontal: 10,
-    borderRadius: 10,
   },
-  messageSender: {
-    fontWeight: 'bold',
-    marginBottom: 5,
+  textBubble: {
+    borderRadius: 20,
+    padding: 10,
   },
   messageContent: {
-    marginBottom: 5,
+    fontSize: 16,
   },
-  imagePreview: {
+  imageMessage: {
     width: 200,
-    height: 150,
+    height: 200,
     borderRadius: 10,
-    marginBottom: 5,
   },
-  filePreview: {
+  fileBubble: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 5,
+    borderRadius: 20,
+    padding: 10,
   },
   fileName: {
     marginLeft: 10,
+    fontSize: 14,
   },
-  messageTimestamp: {
+  timestamp: {
     fontSize: 12,
+    color: '#888',
     alignSelf: 'flex-end',
+    marginTop: 5,
   },
   inputContainer: {
     flexDirection: 'row',
+    padding: 10,
+    alignItems: 'center',
+  },
+  attachButton: {
     padding: 10,
   },
   input: {
@@ -217,33 +226,21 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     marginRight: 10,
   },
-  iconButton: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-  },
   sendButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-    justifyContent: 'center',
+  attachmentMenu: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    padding: 20,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+  },
+  attachmentOption: {
     alignItems: 'center',
-  },
-  fullScreenImage: {
-    width: '100%',
-    height: '100%',
-  },
-  closeButton: {
-    position: 'absolute',
-    top: 40,
-    right: 20,
-    zIndex: 1,
   },
 });
 

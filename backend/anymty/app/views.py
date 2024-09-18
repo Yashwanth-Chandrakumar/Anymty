@@ -1,3 +1,6 @@
+import os
+import uuid
+
 import boto3
 from botocore.exceptions import NoCredentialsError
 from django.conf import settings
@@ -35,28 +38,23 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
 
         elif request.method == 'POST':
-            serializer = MessageSerializer(data=request.data, context={'view': self})
+            serializer = MessageSerializer(data=request.data, context={'request': request, 'view': self})
             if serializer.is_valid():
                 serializer.save(chat_room=chat_room, sender=request.user)
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
+
     def upload_file_to_s3(self, file):
         s3 = boto3.client('s3', 
                           aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
                           aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY)
         try:
-            # Generate a unique filename
             file_extension = os.path.splitext(file.name)[1]
             unique_filename = f"{uuid.uuid4()}{file_extension}"
-            
-            # Create the full path for the file in S3
             file_path = f"{self.request.user.id}/{unique_filename}"
             
-            # Upload the file to S3
             s3.upload_fileobj(file, settings.AWS_STORAGE_BUCKET_NAME, file_path)
             
-            # Generate the public URL for the file
             file_url = f"https://{settings.AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/{file_path}"
             file_type = file.content_type
             return file_url, file_type
