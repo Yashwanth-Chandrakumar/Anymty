@@ -4,10 +4,11 @@ import { useTheme } from '@react-navigation/native';
 import axios from 'axios';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
+import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Dimensions, FlatList, Image, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import ImageViewer from 'react-native-image-zoom-viewer';
 import { WebView } from 'react-native-webview';
-
 interface Message {
   id: string;
   sender: string;
@@ -26,7 +27,8 @@ const ChatScreen: React.FC = () => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedPdf, setSelectedPdf] = useState<string | null>(null);
   const flatListRef = useRef<FlatList>(null);
-
+  const  chatRoomId  = useLocalSearchParams(); ;
+  
   useEffect(() => {
     fetchMessages();
   }, []);
@@ -36,7 +38,7 @@ const ChatScreen: React.FC = () => {
       const userInfo = await AsyncStorage.getItem('userInfo');
       if (userInfo) {
         const { token } = JSON.parse(userInfo);
-        const response = await axios.get('http://127.0.0.1:8000/chatrooms/1/messages/', {
+        const response = await axios.get(`http://127.0.0.1:8000/chatrooms/${chatRoomId.id}/messages/`, {
           headers: { Authorization: `Bearer ${token}` },
           params: { ordering: 'timestamp' } // Add ordering parameter here
         });
@@ -62,7 +64,7 @@ const ChatScreen: React.FC = () => {
           formData.append('file', fileBlob, file.name);
         }
 
-        const response = await axios.post('http://127.0.0.1:8000/chatrooms/1/messages/', formData, {
+        const response = await axios.post(`http://127.0.0.1:8000/chatrooms/${chatRoomId}/messages/`, formData, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'multipart/form-data',
@@ -177,23 +179,24 @@ const ChatScreen: React.FC = () => {
         </View>
       )}
       <Modal visible={!!selectedImage} transparent={true} onRequestClose={() => setSelectedImage(null)}>
-        <View style={styles.modalContainer}>
-          <TouchableOpacity style={styles.closeButton} onPress={() => setSelectedImage(null)}>
-            <Ionicons name="close" size={30} color="white" />
-          </TouchableOpacity>
-          {selectedImage && (
-            <Image
-              source={{ uri: selectedImage }}
-              style={styles.fullScreenImage}
-              resizeMode="contain"
-            />
-          )}
-        </View>
+      <View style={styles.modalContainer}>
+    {/* Close Button */}
+    <TouchableOpacity style={styles.closeButton} onPress={() => setSelectedImage(null)}>
+      <Ionicons name="close" size={30} color="white" />
+    </TouchableOpacity>
+
+    <ImageViewer
+      imageUrls={[{ url: selectedImage || '' }]} // Wrap image URL in an array for the ImageViewer
+      enableSwipeDown
+      onSwipeDown={() => setSelectedImage(null)} // Close modal on swipe down
+      renderIndicator={() => null} // Hide image index indicator
+    />
+  </View>
       </Modal>
       <Modal visible={!!selectedPdf} transparent={true} onRequestClose={() => setSelectedPdf(null)}>
         <View style={styles.modalContainer}>
           <TouchableOpacity style={styles.closeButton} onPress={() => setSelectedPdf(null)}>
-            <Ionicons name="close" size={30} color="white" />
+            <Ionicons name="close" size={30} color="green" />
           </TouchableOpacity>
           {selectedPdf && (
             <WebView
@@ -282,17 +285,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginVertical: 5,
   },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-  },
-  closeButton: {
-    position: 'absolute',
-    top: 20,
-    right: 20,
-  },
+  
   fullScreenImage: {
     width: Dimensions.get('window').width,
     height: Dimensions.get('window').height,
@@ -300,6 +293,16 @@ const styles = StyleSheet.create({
   fullScreenPdf: {
     width: Dimensions.get('window').width,
     height: Dimensions.get('window').height,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    zIndex: 1, // Ensure it's always on top
   },
 });
 

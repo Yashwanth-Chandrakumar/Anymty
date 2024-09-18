@@ -31,10 +31,10 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['get', 'post'])
     def messages(self, request, pk=None):
-        chat_room = self.get_object()
+        chat_room = self.get_object()  # Get the specific ChatRoom instance
 
         if request.method == 'GET':
-            messages = chat_room.messages.order_by('timestamp')  # Change to ascending order
+            messages = chat_room.messages.order_by('timestamp')  # Ensure messages are ordered correctly
             serializer = MessageSerializer(messages, many=True)
             return Response(serializer.data)
 
@@ -44,6 +44,7 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
                 serializer.save(chat_room=chat_room, sender=request.user)
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
     def upload_file_to_s3(self, file):

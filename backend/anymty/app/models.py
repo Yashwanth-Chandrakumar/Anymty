@@ -48,7 +48,7 @@ class Message(models.Model):
     type = models.CharField(max_length=5, choices=MESSAGE_TYPES, default='text')
 
     class Meta:
-        ordering = ['-timestamp']
+        ordering = ['timestamp']
 
     def __str__(self):
         return f"{self.sender.username}: {self.content[:20]}"
