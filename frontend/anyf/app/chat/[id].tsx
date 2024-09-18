@@ -6,7 +6,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Dimensions, FlatList, Image, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-// import Pdf from 'react-native-pdf';
+import { WebView } from 'react-native-webview';
 
 interface Message {
   id: string;
@@ -38,6 +38,7 @@ const ChatScreen: React.FC = () => {
         const { token } = JSON.parse(userInfo);
         const response = await axios.get('http://127.0.0.1:8000/chatrooms/1/messages/', {
           headers: { Authorization: `Bearer ${token}` },
+          params: { ordering: 'timestamp' } // Add ordering parameter here
         });
         setMessages(response.data);
       }
@@ -45,6 +46,7 @@ const ChatScreen: React.FC = () => {
       console.error('Error fetching messages:', error);
     }
   }, []);
+  
 
   const sendMessage = useCallback(async (content: string, file?: any) => {
     try {
@@ -111,10 +113,8 @@ const ChatScreen: React.FC = () => {
     setIsAttachmentMenuVisible(false);
   }, [sendMessage]);
 
-  
-
   const renderMessageItem = useCallback(({ item }: { item: Message }) => (
-    <View style={[styles.messageItem, { alignSelf: item.sender === 'You' ? 'flex-end' : 'flex-start' }]}>
+    <View style={[styles.messageItem, { alignSelf: item.sender === 'You' ? 'flex-end' : 'flex-start' }]} key={item.id}>
       {item.type === 'text' && (
         <View style={[styles.textBubble, { backgroundColor: item.sender === 'You' ? colors.primary : colors.card }]}>
           <Text style={[styles.messageContent, { color: item.sender === 'You' ? 'white' : colors.text }]}>{item.content}</Text>
@@ -142,12 +142,13 @@ const ChatScreen: React.FC = () => {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <FlatList
-        ref={flatListRef}
-        data={messages}
-        renderItem={renderMessageItem}
-        keyExtractor={(item) => item.id}
-        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
-      />
+  ref={flatListRef}
+  data={messages}
+  renderItem={renderMessageItem}
+  keyExtractor={(item) => item.id}
+  onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+/>
+
       <View style={styles.inputContainer}>
         <TouchableOpacity onPress={() => setIsAttachmentMenuVisible(!isAttachmentMenuVisible)} style={styles.attachButton}>
           <Ionicons name="attach" size={24} color={colors.text} />
@@ -194,29 +195,30 @@ const ChatScreen: React.FC = () => {
           <TouchableOpacity style={styles.closeButton} onPress={() => setSelectedPdf(null)}>
             <Ionicons name="close" size={30} color="white" />
           </TouchableOpacity>
-          {/* {selectedPdf && (
-            // <Pdf
-            //   source={{ uri: selectedPdf }}
-            //   style={styles.fullScreenPdf}
-            // />
-          )} */}
+          {selectedPdf && (
+            <WebView
+              source={{ uri: selectedPdf }}
+              style={styles.fullScreenPdf}
+            />
+          )}
         </View>
       </Modal>
     </View>
   );
 };
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
   messageItem: {
+    margin: 10,
     maxWidth: '80%',
-    marginVertical: 5,
-    marginHorizontal: 10,
   },
   textBubble: {
-    borderRadius: 20,
     padding: 10,
+    borderRadius: 10,
+    marginVertical: 5,
   },
   messageContent: {
     fontSize: 16,
@@ -225,72 +227,77 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
     borderRadius: 10,
+    marginVertical: 5,
   },
   fileBubble: {
+    padding: 10,
+    borderRadius: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 20,
-    padding: 10,
+    marginVertical: 5,
   },
   fileName: {
     marginLeft: 10,
-    fontSize: 14,
+    fontSize: 16,
   },
   timestamp: {
     fontSize: 12,
-    color: '#888',
-    alignSelf: 'flex-end',
+    color: 'grey',
+    textAlign: 'right',
     marginTop: 5,
   },
   inputContainer: {
     flexDirection: 'row',
-    padding: 10,
     alignItems: 'center',
+    padding: 10,
+    borderTopWidth: 1,
+    borderColor: 'grey',
   },
   attachButton: {
-    padding: 10,
+    marginRight: 10,
   },
   input: {
     flex: 1,
+    padding: 10,
     borderRadius: 20,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    marginRight: 10,
   },
   sendButton: {
-    width: 40,
-    height: 40,
+    marginLeft: 10,
+    padding: 10,
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
   attachmentMenu: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    padding: 20,
-    backgroundColor: 'rgba(0,0,0,0.1)',
+    position: 'absolute',
+    bottom: 60,
+    left: 10,
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 10,
+    elevation: 5,
   },
   attachmentOption: {
+    flexDirection: 'row',
     alignItems: 'center',
+    marginVertical: 5,
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
   },
   fullScreenImage: {
     width: Dimensions.get('window').width,
     height: Dimensions.get('window').height,
   },
-  closeButton: {
-    position: 'absolute',
-    top: 40,
-    right: 20,
-    zIndex: 1,
-  },
   fullScreenPdf: {
-    flex: 1,
     width: Dimensions.get('window').width,
     height: Dimensions.get('window').height,
   },
