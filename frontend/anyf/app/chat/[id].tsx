@@ -6,9 +6,10 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Dimensions, FlatList, Image, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import ImageViewer from 'react-native-image-zoom-viewer';
-import { WebView } from 'react-native-webview';
+import { FlatList, Image, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import FileViewer from '../../components/FileViewer'; // Make sure to import the FileViewer component
+
 interface Message {
   id: string;
   sender: string;
@@ -24,11 +25,10 @@ const ChatScreen: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [isAttachmentMenuVisible, setIsAttachmentMenuVisible] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [selectedPdf, setSelectedPdf] = useState<string | null>(null);
-  const flatListRef = useRef<FlatList>(null);
-  const  chatRoomId  = useLocalSearchParams(); ;
-  
+  const [selectedFile, setSelectedFile] = useState<{ url: string; type: string; name: string } | null>(null);
+  const flatListRef = useRef<FlatList<Message>>(null);
+  const { id: chatRoomId } = useLocalSearchParams<{ id: string }>();
+
   useEffect(() => {
     fetchMessages();
   }, []);
@@ -36,24 +36,23 @@ const ChatScreen: React.FC = () => {
   const fetchMessages = useCallback(async () => {
     try {
       const userInfo = await AsyncStorage.getItem('userInfo');
-      if (userInfo) {
+      if (userInfo && chatRoomId) {
         const { token } = JSON.parse(userInfo);
-        const response = await axios.get(`https://anymty.onrender.com/chatrooms/${chatRoomId.id}/messages/`, {
+        const response = await axios.get(`https://anymty-qe5z.onrender.com/chatrooms/${chatRoomId}/messages/`, {
           headers: { Authorization: `Bearer ${token}` },
-          params: { ordering: 'timestamp' } // Add ordering parameter here
+          params: { ordering: 'timestamp' }
         });
         setMessages(response.data);
       }
     } catch (error) {
       console.error('Error fetching messages:', error);
     }
-  }, []);
-  
+  }, [chatRoomId]);
 
   const sendMessage = useCallback(async (content: string, file?: any) => {
     try {
       const userInfo = await AsyncStorage.getItem('userInfo');
-      if (userInfo) {
+      if (userInfo && chatRoomId) {
         const { token } = JSON.parse(userInfo);
         const formData = new FormData();
         formData.append('content', content);
@@ -64,7 +63,7 @@ const ChatScreen: React.FC = () => {
           formData.append('file', fileBlob, file.name);
         }
 
-        const response = await axios.post(`https://anymty.onrender.com/chatrooms/${chatRoomId.id}/messages/`, formData, {
+        const response = await axios.post(`https://anymty-qe5z.onrender.com/chatrooms/${chatRoomId}/messages/`, formData, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'multipart/form-data',
@@ -81,36 +80,44 @@ const ChatScreen: React.FC = () => {
         console.error('Server response:', error.response.data);
       }
     }
-  }, []);
+  }, [chatRoomId, fetchMessages]);
 
   const pickImage = useCallback(async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 1,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      const asset = result.assets[0];
-      sendMessage('', {
-        uri: asset.uri,
-        type: 'image/jpeg',
-        name: 'image.jpg',
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 1,
       });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const asset = result.assets[0];
+        sendMessage('', {
+          uri: asset.uri,
+          type: 'image/jpeg',
+          name: 'image.jpg',
+        });
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
     }
     setIsAttachmentMenuVisible(false);
   }, [sendMessage]);
 
   const pickDocument = useCallback(async () => {
-    const result = await DocumentPicker.getDocumentAsync();
-    if (result.assets && result.assets.length > 0) {
-      const asset = result.assets[0];
-      sendMessage('', {
-        uri: asset.uri,
-        type: asset.mimeType,
-        name: asset.name,
-      });
+    try {
+      const result = await DocumentPicker.getDocumentAsync();
+      if (result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        sendMessage('', {
+          uri: asset.uri,
+          type: asset.mimeType,
+          name: asset.name,
+        });
+      }
+    } catch (error) {
+      console.error('Error picking document:', error);
     }
     setIsAttachmentMenuVisible(false);
   }, [sendMessage]);
@@ -123,12 +130,12 @@ const ChatScreen: React.FC = () => {
         </View>
       )}
       {item.type === 'image' && item.file_url && (
-        <TouchableOpacity onPress={() => setSelectedImage(item.file_url)}>
+        <TouchableOpacity onPress={() => setSelectedFile({ url: item.file_url, type: 'image/jpeg', name: 'image.jpg' })}>
           <Image source={{ uri: item.file_url }} style={styles.imageMessage} />
         </TouchableOpacity>
       )}
       {item.type === 'file' && item.file_url && (
-        <TouchableOpacity onPress={() => setSelectedPdf(item.file_url)}>
+        <TouchableOpacity onPress={() => setSelectedFile({ url: item.file_url, type: item.file_type || 'application/octet-stream', name: item.file_url.split('/').pop() || 'file' })}>
           <View style={[styles.fileBubble, { backgroundColor: item.sender === 'You' ? colors.primary : colors.card }]}>
             <Ionicons name="document" size={24} color={item.sender === 'You' ? 'white' : colors.text} />
             <Text style={[styles.fileName, { color: item.sender === 'You' ? 'white' : colors.text }]}>
@@ -142,14 +149,14 @@ const ChatScreen: React.FC = () => {
   ), [colors]);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <FlatList
-  ref={flatListRef}
-  data={messages}
-  renderItem={renderMessageItem}
-  keyExtractor={(item) => item.id}
-  onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
-/>
+        ref={flatListRef}
+        data={messages}
+        renderItem={renderMessageItem}
+        keyExtractor={(item) => item.id}
+        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+      />
 
       <View style={styles.inputContainer}>
         <TouchableOpacity onPress={() => setIsAttachmentMenuVisible(!isAttachmentMenuVisible)} style={styles.attachButton}>
@@ -178,35 +185,21 @@ const ChatScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
       )}
-      <Modal visible={!!selectedImage} transparent={true} onRequestClose={() => setSelectedImage(null)}>
-      <View style={styles.modalContainer}>
-    {/* Close Button */}
-    <TouchableOpacity style={styles.closeButton} onPress={() => setSelectedImage(null)}>
-      <Ionicons name="close" size={30} color="red" />
-    </TouchableOpacity>
-
-    <ImageViewer
-      imageUrls={[{ url: selectedImage || '' }]} // Wrap image URL in an array for the ImageViewer
-      enableSwipeDown
-      onSwipeDown={() => setSelectedImage(null)} // Close modal on swipe down
-      renderIndicator={() => null} // Hide image index indicator
-    />
-  </View>
-      </Modal>
-      <Modal visible={!!selectedPdf} transparent={true} onRequestClose={() => setSelectedPdf(null)}>
+      <Modal visible={!!selectedFile} transparent={true} onRequestClose={() => setSelectedFile(null)}>
         <View style={styles.modalContainer}>
-          <TouchableOpacity style={styles.closeButton} onPress={() => setSelectedPdf(null)}>
-            <Ionicons name="close" size={30} color="green" />
+          <TouchableOpacity style={styles.closeButton} onPress={() => setSelectedFile(null)}>
+            <Ionicons name="close" size={30} color="white" />
           </TouchableOpacity>
-          {selectedPdf && (
-            <WebView
-              source={{ uri: selectedPdf }}
-              style={styles.fullScreenPdf}
+          {selectedFile && (
+            <FileViewer
+              fileUrl={selectedFile.url}
+              fileType={selectedFile.type}
+              fileName={selectedFile.name}
             />
           )}
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -285,15 +278,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginVertical: 5,
   },
-  
-  fullScreenImage: {
-    width: Dimensions.get('window').width,
-    height: Dimensions.get('window').height,
-  },
-  fullScreenPdf: {
-    width: Dimensions.get('window').width,
-    height: Dimensions.get('window').height,
-  },
   modalContainer: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
@@ -302,7 +286,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 40,
     right: 20,
-    zIndex: 1, // Ensure it's always on top
+    zIndex: 1,
   },
 });
 

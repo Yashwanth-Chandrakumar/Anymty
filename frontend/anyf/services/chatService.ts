@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'https://anymty.onrender.com/api';
+const API_URL = 'https://anymty-qe5z.onrender.com/api';
 
 export const fetchMessages = async (chatId: string) => {
   try {

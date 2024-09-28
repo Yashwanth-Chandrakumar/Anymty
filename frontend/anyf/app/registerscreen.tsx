@@ -17,7 +17,7 @@ const RegisterScreen: React.FC = () => {
         }
 
         try {
-            const response = await axios.post('https://anymty.onrender.com/register/', {
+            const response = await axios.post('https://anymty-qe5z.onrender.com/register/', {
                 email,
                 password,
                 confirmPassword

@@ -5,6 +5,7 @@ import axios from 'axios';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { FlatList, Modal, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface ChatRoom {
   id: string;
@@ -31,7 +32,7 @@ const HomeScreen: React.FC = () => {
       const userInfo = await AsyncStorage.getItem('userInfo');
       if (userInfo) {
         const { token } = JSON.parse(userInfo);
-        const response = await axios.get('https://anymty.onrender.com/chatrooms/', {
+        const response = await axios.get('https://anymty-qe5z.onrender.com/chatrooms/', {
           headers: { Authorization: `Bearer ${token}` },
         });
         console.log('Chat Rooms:', response.data); // Check the returned data
@@ -50,7 +51,7 @@ const HomeScreen: React.FC = () => {
       if (userInfo) {
         const { token } = JSON.parse(userInfo);
         await axios.post(
-          'https://anymty.onrender.com/chatrooms/',
+          'https://anymty-qe5z.onrender.com/chatrooms/',
           {
             name: newRoomName,
             description: newRoomDescription,
@@ -91,6 +92,7 @@ const HomeScreen: React.FC = () => {
   );
 
   return (
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <FlatList
         data={chatRooms}
@@ -152,6 +154,7 @@ const HomeScreen: React.FC = () => {
         </View>
       </Modal>
     </View>
+    </SafeAreaView>
   );
 };
 
