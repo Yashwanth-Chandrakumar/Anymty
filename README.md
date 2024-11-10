@@ -1,5 +1,4 @@
 
-```markdown
 # Anymty - 100% Anonymous Messaging App
 
 **Anymty** is a secure, anonymous messaging application built with **React Native** for the frontend and **Django** for the backend. It allows users to chat freely with complete anonymity, using its own custom chat architecture and end-to-end encryption. Whether you're sending text messages, multimedia files, or voice notes, **Anymty** ensures privacy and confidentiality, making it the ultimate app for secure communications.
