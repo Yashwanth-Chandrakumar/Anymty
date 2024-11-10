@@ -1,4 +1,3 @@
-Here’s a detailed README file for **Anymty**, your mobile app similar to WhatsApp, focused on 100% anonymity, end-to-end encryption, and multimedia transfer:
 
 ```markdown
 # Anymty - 100% Anonymous Messaging App
